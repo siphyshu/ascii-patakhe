@@ -39,7 +39,7 @@
             line-height: 1;
             will-change: transform, opacity;
         }
-
+        
         .star {
             position: absolute;
             color: white;
@@ -68,16 +68,16 @@
     <div id="viewport" class="flex-1 bg-black relative rounded-[50px] overflow-hidden mb-8">
     </div>
     
-    <!-- Bottom Control Panel -->
-    <div class="px-8 py-6 flex flex-col items-center justify-center gap-4">
+    <!-- Bottom Control Panel (Earth's horizon curve) -->
+    <div class="px-8 py-8 flex flex-col items-center justify-center gap-4" style="border-radius: 50% 50% 0 0 / 120px 120px 0 0;">
         <!-- Launch Button -->
         <button id="launchBtn" class="px-10 py-4 bg-white text-black font-bold text-lg hover:bg-gray-200 transition-all duration-200 cursor-pointer">
-            Launch Firework
+            Launch Patakha!
         </button>
         
         <!-- Counter -->
         <div id="counter" class="text-gray-400 text-sm font-mono">
-            FIREWORKS LAUNCHED: <span id="count" class="text-white">0</span>
+            PATAKHE LAUNCHED: <span id="count" class="text-white">0</span>
         </div>
     </div>
 
@@ -90,10 +90,10 @@
         let fireworkCount = 0;
         let animationId = null;
         let lastTs = performance.now();
-
+        
         // Create twinkling stars
         function createStars() {
-            const starCount = 50;
+            const starCount = 100;
             const starChars = ['.', '*', '·', '°', '+'];
             
             for (let i = 0; i < starCount; i++) {
@@ -109,7 +109,6 @@
         }
         
         createStars();
-
         
         // DOM element pool for performance
         const elementPool = {
