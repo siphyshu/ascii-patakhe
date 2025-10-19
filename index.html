@@ -145,7 +145,7 @@
                     // Add trail (less frequently)
                     if (Math.random() > 0.5) {
                         const trailEl = elementPool.get(Math.random() > 0.5 ? '|' : '!', 'particle');
-                        trailEl.style.color = this.color;
+                        trailEl.style.color = Math.random() > 0.5 ? '#ffcc66' : '#ffffff'; // Golden and white trail mix
                         viewport.appendChild(trailEl);
                         
                         this.trail.push({
@@ -183,8 +183,21 @@
                         p.life -= 0.01 * dt;
                     });
                     
-                    // Remove dead particles
-                    this.particles = this.particles.filter(p => p.life > 0);
+                    // Remove dead particles or particles outside viewport bounds
+                    const viewportHeight = viewport.clientHeight;
+                    const viewportWidth = viewport.clientWidth;
+                    this.particles = this.particles.filter(p => {
+                        const outOfBounds = p.y > viewportHeight + 50 || p.y < -50 || 
+                                          p.x > viewportWidth + 50 || p.x < -50;
+                        if (outOfBounds || p.life <= 0) {
+                            // Return element to pool
+                            if (p.element && p.element.parentNode) {
+                                elementPool.release(p.element);
+                            }
+                            return false;
+                        }
+                        return true;
+                    });
                     
                     // Check if all particles are dead
                     if (this.particles.length === 0) {
@@ -212,7 +225,7 @@
                 
                 // Create particles (reduced count for performance)
                 const particleCount = Math.random() * 20 + 30;
-                const chars = ['*', '+', '·', 'o', '°', '✦', '✧', '×', '•'];
+                const chars = ['*', '+', '·', 'o', '°', '✧', '×', '•'];
                 
                 for (let i = 0; i < particleCount; i++) {
                     const angle = (Math.PI * 2 * i) / particleCount;
