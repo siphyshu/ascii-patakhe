@@ -39,6 +39,20 @@
             line-height: 1;
             will-change: transform, opacity;
         }
+
+        .star {
+            position: absolute;
+            color: white;
+            pointer-events: none;
+            user-select: none;
+            font-size: 12px;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
         
         #launchBtn:hover {
             transform: scale(1.05);
@@ -76,6 +90,26 @@
         let fireworkCount = 0;
         let animationId = null;
         let lastTs = performance.now();
+
+        // Create twinkling stars
+        function createStars() {
+            const starCount = 50;
+            const starChars = ['.', '*', '·', '°', '+'];
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.textContent = starChars[Math.floor(Math.random() * starChars.length)];
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 80 + '%'; // Keep in top 80% of screen
+                star.style.animationDelay = Math.random() * 3 + 's';
+                star.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                viewport.appendChild(star);
+            }
+        }
+        
+        createStars();
+
         
         // DOM element pool for performance
         const elementPool = {
