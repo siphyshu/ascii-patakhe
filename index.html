@@ -149,7 +149,7 @@
         ];
         
         class Firework {
-            constructor(startX) {
+            constructor(startX, explosionType = null, color = null) {
                 this.id = Date.now() + Math.random();
                 this.startX = startX;
                 this.x = startX;
@@ -162,7 +162,11 @@
                 // Target explosion height (position-based, relative to viewport)
                 const explosionHeightPercent = Math.random() * 0.25 + 0.10; // Explode at 10-35% from top
                 this.targetY = viewport.clientHeight * explosionHeightPercent;
-                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.color = color || colors[Math.floor(Math.random() * colors.length)];
+                
+                // Choose explosion type (can be overridden by debug panel)
+                this.explosionType = explosionType || ['peony', 'ring', 'willow', 'palm'][Math.floor(Math.random() * 4)];
+                
                 this.phase = 'launch'; // 'launch' or 'explode'
                 this.particles = [];
                 this.trail = [];
@@ -223,10 +227,27 @@
                     // Update particles (scaled by dt)
                     this.particles.forEach(p => {
                         p.vx *= Math.pow(0.98, dt); // Air resistance
-                        p.vy += 0.15 * dt; // Gravity
+                        p.vy += (p.gravity || 0.15) * dt; // Gravity (custom per particle)
                         p.x += p.vx * dt;
                         p.y += p.vy * dt;
                         p.life -= 0.01 * dt;
+                        
+                        // Palm trails: occasionally drop a trail particle
+                        if (p.hasTrail && Math.random() > 0.7 && p.life > 0.5) {
+                            const trailParticle = {
+                                x: p.x,
+                                y: p.y,
+                                vx: 0,
+                                vy: 1,
+                                life: 0.5,
+                                char: '·',
+                                gravity: 0.1,
+                                element: elementPool.get('·', 'particle')
+                            };
+                            trailParticle.element.style.color = this.color;
+                            viewport.appendChild(trailParticle.element);
+                            this.particles.push(trailParticle);
+                        }
                     });
                     
                     // Remove dead particles or particles outside viewport bounds
@@ -269,31 +290,90 @@
                 });
                 this.trail = [];
                 
-                // Create particles (reduced count for performance)
-                const particleCount = Math.random() * 20 + 30;
+                // Create particles based on explosion type
                 const chars = ['*', '+', '·', 'o', '°', '✧', '×', '•'];
+                let particleCount;
                 
-                for (let i = 0; i < particleCount; i++) {
-                    const angle = (Math.PI * 2 * i) / particleCount;
-                    const speed = Math.random() * 4 + 2;
+                if (this.explosionType === 'peony') {
+                    // Standard spherical burst
+                    particleCount = Math.random() * 20 + 30;
+                    for (let i = 0; i < particleCount; i++) {
+                        const angle = (Math.PI * 2 * i) / particleCount;
+                        const speed = Math.random() * 4 + 2;
+                        this.createParticle(angle, speed, chars, this.color);
+                    }
                     
-                    const particle = {
-                        x: this.x,
-                        y: this.y,
-                        vx: Math.cos(angle) * speed,
-                        vy: Math.sin(angle) * speed,
-                        life: 1.0,
-                        char: chars[Math.floor(Math.random() * chars.length)],
-                        element: null
-                    };
+                } else if (this.explosionType === 'ring') {
+                    // Ring shape - expanding circle with less vertical spread
+                    particleCount = Math.random() * 30 + 40;
+                    for (let i = 0; i < particleCount; i++) {
+                        const angle = (Math.PI * 2 * i) / particleCount;
+                        const speed = Math.random() * 3 + 4;
+                        // Compress vertical component to create flatter ring
+                        const vx = Math.cos(angle) * speed;
+                        const vy = Math.sin(angle) * speed * 0.3; // 30% vertical speed
+                        
+                        const particle = {
+                            x: this.x,
+                            y: this.y,
+                            vx: vx,
+                            vy: vy,
+                            life: 1.0,
+                            char: chars[Math.floor(Math.random() * chars.length)],
+                            gravity: 0.15,
+                            hasTrail: false,
+                            element: null
+                        };
+                        
+                        particle.element = elementPool.get(particle.char, 'particle');
+                        particle.element.style.color = this.color;
+                        viewport.appendChild(particle.element);
+                        this.particles.push(particle);
+                    }
                     
-                    // Create particle element using pool
-                    particle.element = elementPool.get(particle.char, 'particle');
-                    particle.element.style.color = this.color;
-                    viewport.appendChild(particle.element);
+                } else if (this.explosionType === 'willow') {
+                    // Willow - upward burst with heavy gravity (droop effect)
+                    particleCount = Math.random() * 40 + 50;
+                    for (let i = 0; i < particleCount; i++) {
+                        // Full circle distribution
+                        const angle = (Math.PI * 2 * i) / particleCount;
+                        const speed = Math.random() * 4 + 3;
+                        const particle = this.createParticle(angle, speed, ['|', '/', '\\', '!', '*'], this.color);
+                        particle.gravity = 0.3; // Extra gravity for droop effect
+                    }
                     
-                    this.particles.push(particle);
+                } else if (this.explosionType === 'palm') {
+                    // Palm - thick trails going outward and up
+                    particleCount = 12;
+                    for (let i = 0; i < particleCount; i++) {
+                        const angle = (Math.PI * 2 * i) / particleCount - Math.PI / 4;
+                        const speed = Math.random() * 2 + 5;
+                        const particle = this.createParticle(angle, speed, ['*', '✧', '+'], this.color);
+                        particle.hasTrail = true; // Will leave trail particles
+                    }
                 }
+            }
+            
+            createParticle(angle, speed, chars, color) {
+                const particle = {
+                    x: this.x,
+                    y: this.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1.0,
+                    char: chars[Math.floor(Math.random() * chars.length)],
+                    gravity: 0.15, // Default gravity
+                    hasTrail: false,
+                    element: null
+                };
+                
+                // Create particle element using pool
+                particle.element = elementPool.get(particle.char, 'particle');
+                particle.element.style.color = color;
+                viewport.appendChild(particle.element);
+                
+                this.particles.push(particle);
+                return particle;
             }
             
             render() {
@@ -344,9 +424,9 @@
             }
         }
         
-        function launchFirework() {
+        function launchFirework(explosionType = null, color = null) {
             const startX = Math.random() * (viewport.clientWidth - 100) + 50;
-            const firework = new Firework(startX);
+            const firework = new Firework(startX, explosionType, color);
             fireworks.push(firework);
             fireworkCount++;
             countDisplay.textContent = fireworkCount;
