@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Patakhe! 🧨</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #0a0a0a;
+            font-family: 'Courier New', monospace;
+        }
+        
+        #viewport {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            font-weight: bold;
+            user-select: none;
+            font-size: 18px;
+            line-height: 1;
+            will-change: transform, opacity;
+        }
+        
+        .rocket {
+            position: absolute;
+            pointer-events: none;
+            font-weight: bold;
+            user-select: none;
+            font-size: 20px;
+            line-height: 1;
+            will-change: transform, opacity;
+        }
+        
+        #launchBtn:hover {
+            transform: scale(1.05);
+        }
+        
+        #launchBtn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen pb-8">
+    <!-- Fireworks Viewport (Full Screen) -->
+    <div id="viewport" class="flex-1 bg-black relative rounded-[50px] overflow-hidden mb-8">
+    </div>
+    
+    <!-- Bottom Control Panel -->
+    <div class="px-8 py-6 flex flex-col items-center justify-center gap-4">
+        <!-- Launch Button -->
+        <button id="launchBtn" class="px-10 py-4 bg-white text-black font-bold text-lg hover:bg-gray-200 transition-all duration-200 cursor-pointer">
+            Launch Firework
+        </button>
+        
+        <!-- Counter -->
+        <div id="counter" class="text-gray-400 text-sm font-mono">
+            FIREWORKS LAUNCHED: <span id="count" class="text-white">0</span>
+        </div>
+    </div>
+
+    <script>
+        const viewport = document.getElementById('viewport');
+        const launchBtn = document.getElementById('launchBtn');
+        const countDisplay = document.getElementById('count');
+        
+        let fireworks = [];
+        let fireworkCount = 0;
+        let animationId = null;
+        let lastTs = performance.now();
+        
+        // DOM element pool for performance
+        const elementPool = {
+            pool: [],
+            maxSize: 300,
+            get(char, cls) {
+                const el = this.pool.pop() || document.createElement('div');
+                el.className = cls || 'particle';
+                el.textContent = char;
+                el.style.display = '';
+                // Reset transform and opacity for reused elements
+                el.style.transform = '';
+                el.style.opacity = '1';
+                return el;
+            },
+            release(el) {
+                if (this.pool.length < this.maxSize) {
+                    el.style.display = 'none';
+                    this.pool.push(el);
+                } else {
+                    // Pool full, actually remove
+                    if (el.parentNode) {
+                        el.parentNode.removeChild(el);
+                    }
+                }
+            }
+        };
+        
+        const colors = [
+            '#ff3366', // red
+            '#ffaa00', // gold
+            '#ffff66', // yellow
+            '#66ff66', // green
+            '#00ccff', // cyan
+            '#ff66ff', // magenta
+            '#ffffff', // white
+            '#ff6600', // orange
+        ];
+        
+        class Firework {
+            constructor(startX) {
+                this.id = Date.now() + Math.random();
+                this.startX = startX;
+                this.x = startX;
+                this.y = viewport.clientHeight;
+                this.targetY = Math.random() * 200 + 100; // Explode between 100-300px from top
+                this.velocity = -(Math.random() * 3 + 7); // Upward speed
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.phase = 'launch'; // 'launch' or 'explode'
+                this.particles = [];
+                this.trail = [];
+                this.trailElements = []; // Store trail elements for reuse
+                this.exploded = false;
+                this.dead = false;
+                
+                // Create rocket element using pool
+                this.rocketEl = elementPool.get('^', 'rocket');
+                this.rocketEl.style.color = this.color;
+                viewport.appendChild(this.rocketEl);
+            }
+            
+            update(dt = 1) {
+                if (this.phase === 'launch') {
+                    // Move rocket upward (scaled by dt)
+                    this.y += this.velocity * dt;
+                    
+                    // Add trail (less frequently)
+                    if (Math.random() > 0.5) {
+                        const trailEl = elementPool.get(Math.random() > 0.5 ? '|' : '!', 'particle');
+                        trailEl.style.color = this.color;
+                        viewport.appendChild(trailEl);
+                        
+                        this.trail.push({
+                            x: this.x,
+                            y: this.y,
+                            life: 1.0,
+                            element: trailEl
+                        });
+                    }
+                    
+                    // Update trail (scaled by dt)
+                    this.trail = this.trail.filter(t => {
+                        t.life -= 0.08 * dt;
+                        if (t.life <= 0) {
+                            if (t.element && t.element.parentNode) {
+                                elementPool.release(t.element);
+                            }
+                            return false;
+                        }
+                        return true;
+                    });
+                    
+                    // Check if reached target height
+                    if (this.y <= this.targetY) {
+                        this.explode();
+                    }
+                    
+                } else if (this.phase === 'explode') {
+                    // Update particles (scaled by dt)
+                    this.particles.forEach(p => {
+                        p.vx *= Math.pow(0.98, dt); // Air resistance
+                        p.vy += 0.15 * dt; // Gravity
+                        p.x += p.vx * dt;
+                        p.y += p.vy * dt;
+                        p.life -= 0.01 * dt;
+                    });
+                    
+                    // Remove dead particles
+                    this.particles = this.particles.filter(p => p.life > 0);
+                    
+                    // Check if all particles are dead
+                    if (this.particles.length === 0) {
+                        this.dead = true;
+                    }
+                }
+            }
+            
+            explode() {
+                this.phase = 'explode';
+                this.exploded = true;
+                
+                // Remove rocket element
+                if (this.rocketEl && this.rocketEl.parentNode) {
+                    this.rocketEl.parentNode.removeChild(this.rocketEl);
+                }
+                
+                // Clear all trail elements immediately
+                this.trail.forEach(t => {
+                    if (t.element && t.element.parentNode) {
+                        elementPool.release(t.element);
+                    }
+                });
+                this.trail = [];
+                
+                // Create particles (reduced count for performance)
+                const particleCount = Math.random() * 20 + 30;
+                const chars = ['*', '+', '·', 'o', '°', '✦', '✧', '×', '•'];
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const speed = Math.random() * 4 + 2;
+                    
+                    const particle = {
+                        x: this.x,
+                        y: this.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1.0,
+                        char: chars[Math.floor(Math.random() * chars.length)],
+                        element: null
+                    };
+                    
+                    // Create particle element using pool
+                    particle.element = elementPool.get(particle.char, 'particle');
+                    particle.element.style.color = this.color;
+                    viewport.appendChild(particle.element);
+                    
+                    this.particles.push(particle);
+                }
+            }
+            
+            render() {
+                if (this.phase === 'launch') {
+                    // Render rocket using transform
+                    if (this.rocketEl) {
+                        this.rocketEl.style.transform = `translate3d(${this.x}px, ${this.y}px, 0)`;
+                    }
+                    
+                    // Render trail using transform
+                    this.trail.forEach(t => {
+                        if (t.element) {
+                            t.element.style.transform = `translate3d(${t.x}px, ${t.y}px, 0)`;
+                            t.element.style.opacity = t.life;
+                        }
+                    });
+                    
+                } else if (this.phase === 'explode') {
+                    // Render particles using transform
+                    this.particles.forEach(p => {
+                        if (p.element) {
+                            p.element.style.transform = `translate3d(${p.x}px, ${p.y}px, 0)`;
+                            p.element.style.opacity = p.life;
+                        }
+                    });
+                }
+            }
+            
+            cleanup() {
+                // Return rocket element to pool
+                if (this.rocketEl && this.rocketEl.parentNode) {
+                    elementPool.release(this.rocketEl);
+                }
+                
+                // Return all trail elements to pool
+                this.trail.forEach(t => {
+                    if (t.element && t.element.parentNode) {
+                        elementPool.release(t.element);
+                    }
+                });
+                
+                // Return all particle elements to pool
+                this.particles.forEach(p => {
+                    if (p.element && p.element.parentNode) {
+                        elementPool.release(p.element);
+                    }
+                });
+            }
+        }
+        
+        function launchFirework() {
+            const startX = Math.random() * (viewport.clientWidth - 100) + 50;
+            const firework = new Firework(startX);
+            fireworks.push(firework);
+            fireworkCount++;
+            countDisplay.textContent = fireworkCount;
+            
+            // Start animation loop if not running
+            if (!animationId) {
+                animate();
+            }
+        }
+        
+        function animate(ts) {
+            // Calculate delta time (capped at 4x for stability)
+            const dt = Math.min((ts - lastTs) / 16.6667, 4);
+            lastTs = ts;
+            
+            // Update all fireworks with delta time
+            fireworks.forEach(fw => fw.update(dt));
+            
+            // Render all fireworks
+            fireworks.forEach(fw => fw.render());
+            
+            // Remove dead fireworks
+            fireworks = fireworks.filter(fw => {
+                if (fw.dead) {
+                    fw.cleanup();
+                    return false;
+                }
+                return true;
+            });
+            
+            // Continue animation if there are active fireworks
+            if (fireworks.length > 0) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                animationId = null;
+            }
+        }
+        
+        // Event listeners
+        launchBtn.addEventListener('click', launchFirework);
+        
+        // Optional: Launch with spacebar
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                launchFirework();
+            }
+        });
+        
+        // Optional: Launch a few fireworks on load for demo
+        setTimeout(() => launchFirework(), 500);
+        setTimeout(() => launchFirework(), 800);
+        setTimeout(() => launchFirework(), 1100);
+    </script>
+</body>
+</html>
