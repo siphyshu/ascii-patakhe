@@ -165,7 +165,7 @@
                 this.color = color || colors[Math.floor(Math.random() * colors.length)];
                 
                 // Choose explosion type (can be overridden by debug panel)
-                this.explosionType = explosionType || ['peony', 'ring', 'willow', 'palm'][Math.floor(Math.random() * 4)];
+                this.explosionType = explosionType || ['peony', 'palm'][Math.floor(Math.random() * 2)];
                 
                 this.phase = 'launch'; // 'launch' or 'explode'
                 this.particles = [];
@@ -227,10 +227,10 @@
                     // Update particles (scaled by dt)
                     this.particles.forEach(p => {
                         p.vx *= Math.pow(0.98, dt); // Air resistance
-                        p.vy += (p.gravity || 0.15) * dt; // Gravity (custom per particle)
+                        p.vy += (p.gravity || 0.05) * dt; // Much lighter gravity (realistic)
                         p.x += p.vx * dt;
                         p.y += p.vy * dt;
-                        p.life -= 0.01 * dt;
+                        p.life -= 0.015 * dt; // Fade out faster (so they disappear in sky)
                         
                         // Palm trails: occasionally drop a trail particle
                         if (p.hasTrail && Math.random() > 0.7 && p.life > 0.5) {
@@ -320,7 +320,7 @@
                             vy: vy,
                             life: 1.0,
                             char: chars[Math.floor(Math.random() * chars.length)],
-                            gravity: 0.15,
+                            gravity: 0.05, // Light gravity for ring
                             hasTrail: false,
                             element: null
                         };
@@ -332,14 +332,14 @@
                     }
                     
                 } else if (this.explosionType === 'willow') {
-                    // Willow - upward burst with heavy gravity (droop effect)
+                    // Willow - upward burst with heavier gravity (droop effect, but still realistic)
                     particleCount = Math.random() * 40 + 50;
                     for (let i = 0; i < particleCount; i++) {
                         // Full circle distribution
                         const angle = (Math.PI * 2 * i) / particleCount;
                         const speed = Math.random() * 4 + 3;
                         const particle = this.createParticle(angle, speed, ['|', '/', '\\', '!', '*'], this.color);
-                        particle.gravity = 0.3; // Extra gravity for droop effect
+                        particle.gravity = 0.12; // Slightly more gravity for droop, but still light
                     }
                     
                 } else if (this.explosionType === 'palm') {
@@ -362,7 +362,7 @@
                     vy: Math.sin(angle) * speed,
                     life: 1.0,
                     char: chars[Math.floor(Math.random() * chars.length)],
-                    gravity: 0.15, // Default gravity
+                    gravity: 0.05, // Light default gravity (realistic)
                     hasTrail: false,
                     element: null
                 };
