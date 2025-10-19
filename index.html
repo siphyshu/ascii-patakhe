@@ -121,8 +121,14 @@
                 this.startX = startX;
                 this.x = startX;
                 this.y = viewport.clientHeight;
-                this.targetY = Math.random() * 200 + 100; // Explode between 100-300px from top
-                this.velocity = -(Math.random() * 3 + 7); // Upward speed
+                
+                // Minecraft-inspired physics
+                this.vy = -9; // Initial vertical velocity (upward, faster now)
+                this.vx = (Math.random() - 0.5) * 0.4; // Small random horizontal velocity
+                
+                // Target explosion height (position-based, relative to viewport)
+                const explosionHeightPercent = Math.random() * 0.25 + 0.10; // Explode at 10-35% from top
+                this.targetY = viewport.clientHeight * explosionHeightPercent;
                 this.color = colors[Math.floor(Math.random() * colors.length)];
                 this.phase = 'launch'; // 'launch' or 'explode'
                 this.particles = [];
@@ -139,8 +145,15 @@
             
             update(dt = 1) {
                 if (this.phase === 'launch') {
-                    // Move rocket upward (scaled by dt)
-                    this.y += this.velocity * dt;
+                    // Minecraft-inspired physics (toned down)
+                    // Horizontal acceleration: slight increase each tick (creates gentle arc)
+                    this.vx *= Math.pow(1.02, dt);
+                    // Vertical acceleration: add constant upward boost (like thrust)
+                    this.vy += 0.04 * dt;
+                    
+                    // Update position
+                    this.x += this.vx * dt;
+                    this.y += this.vy * dt;
                     
                     // Add trail (less frequently)
                     if (Math.random() > 0.5) {
@@ -168,7 +181,7 @@
                         return true;
                     });
                     
-                    // Check if reached target height
+                    // Check if reached target height (position-based explosion)
                     if (this.y <= this.targetY) {
                         this.explode();
                     }
