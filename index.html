@@ -17,6 +17,7 @@
             overflow: hidden;
             background: #0a0a0a;
             font-family: 'Courier New', monospace;
+            touch-action: manipulation; /* Prevent double-tap zoom on mobile */
         }
         
         #viewport {
@@ -29,7 +30,7 @@
             pointer-events: none;
             font-weight: bold;
             user-select: none;
-            font-size: 18px;
+            font-size: 14px;
             line-height: 1;
             will-change: transform, opacity;
         }
@@ -39,9 +40,19 @@
             pointer-events: none;
             font-weight: bold;
             user-select: none;
-            font-size: 20px;
+            font-size: 16px;
             line-height: 1;
             will-change: transform, opacity;
+        }
+        
+        @media (min-width: 768px) {
+            .particle {
+                font-size: 18px;
+            }
+            
+            .rocket {
+                font-size: 20px;
+            }
         }
         
         .star {
@@ -77,12 +88,19 @@
             font-weight: 700;
             color: #d4a574;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            line-height: 1.4;
         }
         
         .divider {
             width: 2px;
-            height: 80px;
+            height: 60px;
             background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.3), transparent);
+        }
+        
+        @media (min-width: 768px) {
+            .divider {
+                height: 80px;
+            }
         }
         
         .stats-section {
@@ -91,17 +109,29 @@
         
         .stat-label {
             color: #888;
-            font-size: 11px;
+            font-size: 9px;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
         }
         
         .stat-value {
             color: white;
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 700;
             font-family: 'Courier New', monospace;
+        }
+        
+        @media (min-width: 768px) {
+            .stat-label {
+                font-size: 11px;
+                letter-spacing: 1px;
+                margin-bottom: 4px;
+            }
+            
+            .stat-value {
+                font-size: 20px;
+            }
         }
         
         .tooltip {
@@ -137,17 +167,27 @@
         
         .connection-status {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
+            top: 10px;
+            right: 10px;
+            padding: 6px 12px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             backdrop-filter: blur(10px);
             z-index: 1000;
+        }
+        
+        @media (min-width: 768px) {
+            .connection-status {
+                top: 20px;
+                right: 20px;
+                padding: 8px 16px;
+                font-size: 12px;
+                gap: 8px;
+            }
         }
         
         .connection-status.connected {
@@ -186,7 +226,7 @@
         }
     </style>
 </head>
-<body class="flex flex-col min-h-screen pb-8" style="background-image: url('background.png'); background-size: repeat; background-position: center;">
+<body class="flex flex-col min-h-screen pb-4 md:pb-8" style="background-image: url('background.png'); background-size: repeat; background-position: center;">
     <!-- Connection Status Badge -->
     <div id="connectionStatus" class="connection-status connecting">
         <div class="status-dot"></div>
@@ -194,35 +234,35 @@
     </div>
     
     <!-- Fireworks Viewport (Full Screen) -->
-    <div id="viewport" class="flex-1 bg-black relative rounded-b-[50px] overflow-hidden mb-8">
+    <div id="viewport" class="flex-1 bg-black relative rounded-b-[30px] md:rounded-b-[50px] overflow-hidden mb-4 md:mb-8">
     </div>
     
     <!-- Bottom Control Panel -->
-    <div class="px-8 py-8 flex items-center justify-center w-full gap-6">
+    <div class="px-4 md:px-8 py-6 md:py-8 flex flex-col md:flex-row items-center justify-center w-full gap-4 md:gap-6">
         <!-- Left: Greetings -->
-        <div class="flex-1 text-center">
-            <div class="diwali-greeting text-2xl">
+        <div class="flex-1 text-center w-full md:w-auto">
+            <div class="diwali-greeting">
                 🪔 Happy Diwali 🪔<br>✨ शुभ दीपावली ✨
             </div>
-            <div class="attribution">From <a href="https://x.com/siphyshu" target="_blank" class="text-blue-500">@siphyshu</a> with 💖</div>
+            <div class="attribution text-xs md:text-sm">From <a href="https://x.com/siphyshu" target="_blank" class="text-blue-500">@siphyshu</a> with 💖</div>
         </div>
         
-        <!-- Divider -->
-        <div class="divider"></div>
+        <!-- Divider (hidden on mobile) -->
+        <div class="divider hidden md:block"></div>
         
         <!-- Center: Launch Button -->
-        <div class="flex flex-col items-center flex-1 gap-2">
-            <button id="launchBtn" class="px-10 py-4 text-black font-bold text-lg transition-all duration-200 cursor-pointer rounded-lg">
+        <div class="flex flex-col items-center flex-1 gap-2 w-full md:w-auto">
+            <button id="launchBtn" class="px-8 md:px-10 py-3 md:py-4 text-black font-bold text-base md:text-lg transition-all duration-200 cursor-pointer rounded-lg w-full md:w-auto max-w-xs">
                 Launch Patakha!
-        </button>
-            <div class="tooltip">Press [Space] to Launch</div>
+            </button>
+            <div class="tooltip text-xs md:text-sm hidden md:block">Press [Space] to Launch</div>
         </div>
         
-        <!-- Divider -->
-        <div class="divider"></div>
+        <!-- Divider (hidden on mobile) -->
+        <div class="divider hidden md:block"></div>
         
         <!-- Right: Stats Section -->
-        <div class="flex flex-row items-center justify-center gap-8 flex-1">
+        <div class="flex flex-row items-center justify-center gap-4 md:gap-8 flex-1 w-full md:w-auto">
             <div class="stats-section text-center">
                 <div class="stat-label">Patakhe Launched</div>
                 <div class="stat-value" id="count">0</div>
