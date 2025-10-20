@@ -3,11 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASCII Patakhe! 🧨</title>
-    
+    <title>ASCII Patakhe - Happy Diwali! 🪔</title>
+    <meta name="description" content="This diwali, light up the internet with live multiplayer ASCII fireworks! 💥">
+    <meta name="keywords" content="diwali, fireworks, multiplayer, ascii, patakhe, siphyshu, webdev, celebration">
+
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amita:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="ASCII Patakhe - Happy Diwali! 🪔">
+    <meta property="og:description" content="This diwali, light up the internet with live multiplayer ASCII fireworks! 💥">
+    <meta property="og:image" content="https://patakhe.siphyshu.me/og.png">
+    <meta property="og:url" content="https://patakhe.siphyshu.me">  
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ASCII Patakhe">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ASCII Patakhe - Happy Diwali! 🪔">
+    <meta name="twitter:description" content="This diwali, light up the internet with live multiplayer ASCII fireworks! 💥">
+    <meta name="twitter:image" content="https://patakhe.siphyshu.me/og.png">
+    <meta name="twitter:url" content="https://patakhe.siphyshu.me">
+    <meta name="twitter:site" content="@siphyshu">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -178,6 +197,13 @@
             gap: 6px;
             backdrop-filter: blur(10px);
             z-index: 1000;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .connection-status.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
         }
         
         @media (min-width: 768px) {
@@ -254,7 +280,7 @@
         <div class="flex flex-col items-center flex-1 gap-2 w-full md:w-auto">
             <button id="launchBtn" class="px-8 md:px-10 py-3 md:py-4 text-black font-bold text-base md:text-lg transition-all duration-200 cursor-pointer rounded-lg w-full md:w-auto max-w-xs">
                 Launch Patakha!
-            </button>
+        </button>
             <div class="tooltip text-xs md:text-sm hidden md:block">Press [Space] to Launch</div>
         </div>
         
@@ -295,6 +321,8 @@
         let isButtonOnCooldown = false;
         let reconnectAttempts = 0;
         let maxReconnectDelay = 30000; // Max 30 seconds between attempts
+        let hideStatusTimeout = null;
+        let isConnected = false;
         
         // Create twinkling stars
         function createStars() {
@@ -659,6 +687,8 @@
             
             ws.onopen = () => {
                 console.log('✅ Connected to server');
+                isConnected = true;
+                connectionStatus.classList.remove('hidden');
                 connectionStatus.className = 'connection-status connected';
                 connectionText.textContent = 'Connected';
                 clearTimeout(reconnectTimeout);
@@ -669,6 +699,14 @@
                 // Reset local counter when successfully connected to server
                 // Server will send us the real count via stats message
                 localFireworkCount = 0;
+                
+                // Hide status badge after 5 seconds if still connected
+                clearTimeout(hideStatusTimeout);
+                hideStatusTimeout = setTimeout(() => {
+                    if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+                        connectionStatus.classList.add('hidden');
+                    }
+                }, 5000);
             };
             
             ws.onmessage = (event) => {
@@ -704,7 +742,10 @@
                     url: ws.url
                 });
                 
-                // Set to offline mode on error
+                // Set to offline mode on error and show badge
+                isConnected = false;
+                clearTimeout(hideStatusTimeout);
+                connectionStatus.classList.remove('hidden');
                 connectionStatus.className = 'connection-status disconnected';
                 connectionText.textContent = 'Disconnected';
                 
@@ -720,6 +761,13 @@
                     reason: event.reason,
                     wasClean: event.wasClean
                 });
+                
+                // Mark as disconnected
+                isConnected = false;
+                
+                // Show badge and set to disconnected
+                clearTimeout(hideStatusTimeout);
+                connectionStatus.classList.remove('hidden');
                 connectionStatus.className = 'connection-status disconnected';
                 connectionText.textContent = 'Disconnected';
                 
@@ -745,6 +793,7 @@
                 
                 // Attempt to reconnect with exponential backoff
                 reconnectTimeout = setTimeout(() => {
+                    connectionStatus.classList.remove('hidden');
                     connectionStatus.className = 'connection-status connecting';
                     connectionText.textContent = 'Reconnecting...';
                     connectWebSocket();

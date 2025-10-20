@@ -178,14 +178,14 @@ async def check_rate_limit(client_ip: str) -> bool:
 
 def calculate_sample_rate(rate_per_second: float) -> int:
     """Calculate sampling rate based on current launch rate (per second)"""
-    if rate_per_second > 20:
+    if rate_per_second <= 15:
+        return 1  # Show all fireworks under 15/sec
+    elif rate_per_second > 30:
         return 10
-    elif rate_per_second > 10:
+    elif rate_per_second > 20:
         return 5
-    elif rate_per_second > 5:
-        return 2
     else:
-        return 1
+        return 2
 
 
 async def broadcast_stats_periodically():
@@ -227,25 +227,25 @@ async def get_background():
         return {"error": "Background not found"}
 
 
-@app.get("/test-ws")
-async def get_test_ws():
-    """Serve test WebSocket page"""
-    return FileResponse("test_simple_ws.html")
+@app.get("/favicon.ico")
+async def get_favicon():
+    """Serve the favicon"""
+    try:
+        return FileResponse("favicon.ico")
+    except Exception as e:
+        logger.warning(f"Favicon not found: {e}")
+        return {"error": "Favicon not found"}
 
 
-@app.websocket("/test")
-async def websocket_test(websocket: WebSocket):
-    """Super simple WebSocket test"""
-    logger.info("TEST: WebSocket connection attempt!")
-    await websocket.accept()
-    logger.info("TEST: WebSocket accepted!")
-    await websocket.send_text("Hello from server!")
-    logger.info("TEST: Sent hello message")
-    
-    while True:
-        data = await websocket.receive_text()
-        logger.info(f"TEST: Received: {data}")
-        await websocket.send_text(f"Echo: {data}")
+
+@app.get("/og.png")
+async def get_og():
+    """Serve the og image"""
+    try:
+        return FileResponse("og.png")
+    except Exception as e:
+        logger.warning(f"OG image not found: {e}")
+        return {"error": "OG image not found"}
 
 
 @app.get("/health")
