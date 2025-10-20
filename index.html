@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASCII Patakhe! 🧨</title>
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amita:wght@400;700&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -54,30 +58,127 @@
             50% { opacity: 1; }
         }
         
+        #launchBtn {
+            background: radial-gradient(circle at center, #f6f0c2, #e8df9c);
+        }
+        
         #launchBtn:hover {
-            transform: scale(1.05);
+            transform: scale(1.00);
+            background: radial-gradient(circle at center, #f6f0c2, #e8df9c);
         }
         
         #launchBtn:active {
             transform: scale(0.95);
         }
+        
+        .diwali-greeting {
+            font-family: 'Amita', cursive;
+            font-size: 20px;
+            font-weight: 700;
+            color: #d4a574;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .divider {
+            width: 2px;
+            height: 80px;
+            background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.3), transparent);
+        }
+        
+        .stats-section {
+            text-align: right;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        
+        .stat-value {
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .tooltip {
+            color: #888;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        .attribution {
+            color: #999;
+            font-size: 13px;
+            margin-top: 12px;
+        }
+        
+        .share-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #1DA1F2;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+        
+        .share-button:hover {
+            background: #1a8cd8;
+            transform: scale(1.05);
+        }
     </style>
 </head>
-<body class="flex flex-col min-h-screen pb-8">
+<body class="flex flex-col min-h-screen pb-8" style="background-image: url('background.png'); background-size: repeat; background-position: center;">
     <!-- Fireworks Viewport (Full Screen) -->
-    <div id="viewport" class="flex-1 bg-black relative rounded-[50px] overflow-hidden mb-8">
+    <div id="viewport" class="flex-1 bg-black relative rounded-b-[50px] overflow-hidden mb-8">
     </div>
     
-    <!-- Bottom Control Panel (Earth's horizon curve) -->
-    <div class="px-8 py-8 flex flex-col items-center justify-center gap-4" style="border-radius: 50% 50% 0 0 / 120px 120px 0 0;">
-        <!-- Launch Button -->
-        <button id="launchBtn" class="px-10 py-4 bg-white text-black font-bold text-lg hover:bg-gray-200 transition-all duration-200 cursor-pointer">
-            Launch Patakha!
-        </button>
+    <!-- Bottom Control Panel -->
+    <div class="px-8 py-8 flex items-center justify-center w-full gap-6">
+        <!-- Left: Greetings -->
+        <div class="flex-1 text-center">
+            <div class="diwali-greeting text-2xl">
+                🪔 Happy Diwali 🪔<br>✨ शुभ दीपावली ✨
+            </div>
+            <div class="attribution">From <a href="https://x.com/siphyshu" target="_blank" class="text-blue-500">@siphyshu</a> with 💖</div>
+        </div>
         
-        <!-- Counter -->
-        <div id="counter" class="text-gray-400 text-sm font-mono">
-            PATAKHE LAUNCHED: <span id="count" class="text-white">0</span>
+        <!-- Divider -->
+        <div class="divider"></div>
+        
+        <!-- Center: Launch Button -->
+        <div class="flex flex-col items-center flex-1 gap-2">
+            <button id="launchBtn" class="px-10 py-4 text-black font-bold text-lg transition-all duration-200 cursor-pointer rounded-lg">
+                Launch Patakha!
+            </button>
+            <div class="tooltip">Press Space to launch</div>
+        </div>
+        
+        <!-- Divider -->
+        <div class="divider"></div>
+        
+        <!-- Right: Stats Section -->
+        <div class="flex flex-row items-center justify-center gap-8 flex-1">
+            <div class="stats-section text-center">
+                <div class="stat-label">Patakhe Launched</div>
+                <div class="stat-value" id="count">0</div>
+            </div>
+            <div class="stats-section text-center">
+                <div class="stat-label">Patakhe Rate</div>
+                <div class="stat-value" id="rateCount">0/s</div>
+            </div>
+            <div class="stats-section text-center">
+                <div class="stat-label">Online</div>
+                <div class="stat-value" id="onlineCount">1</div>
+            </div>
         </div>
     </div>
 
@@ -435,7 +536,7 @@
             
             // Start animation loop if not running
             if (!animationId) {
-                animate();
+                animationId = requestAnimationFrame(animate);
             }
         }
         
@@ -470,11 +571,22 @@
         // Event listeners
         launchBtn.addEventListener('click', () => launchFirework());
         
-        // Optional: Launch with spacebar
+        // Track if space is already pressed to prevent repeat firing
+        let spacePressed = false;
+        
+        // Launch with spacebar (only once per press)
         document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
+            if (e.code === 'Space' && !spacePressed) {
                 e.preventDefault();
+                spacePressed = true;
                 launchFirework();
+            }
+        });
+        
+        // Reset when space is released
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                spacePressed = false;
             }
         });
         
