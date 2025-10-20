@@ -134,9 +134,65 @@
             background: #1a8cd8;
             transform: scale(1.05);
         }
+        
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+        }
+        
+        .connection-status.connected {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        
+        .connection-status.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        .connection-status.connecting {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #launchBtn {
+            transition: opacity 0.1s ease, transform 0.2s ease;
+        }
     </style>
 </head>
 <body class="flex flex-col min-h-screen pb-8" style="background-image: url('background.png'); background-size: repeat; background-position: center;">
+    <!-- Connection Status Badge -->
+    <div id="connectionStatus" class="connection-status connecting">
+        <div class="status-dot"></div>
+        <span id="connectionText">Connecting...</span>
+    </div>
+    
     <!-- Fireworks Viewport (Full Screen) -->
     <div id="viewport" class="flex-1 bg-black relative rounded-b-[50px] overflow-hidden mb-8">
     </div>
@@ -158,8 +214,8 @@
         <div class="flex flex-col items-center flex-1 gap-2">
             <button id="launchBtn" class="px-10 py-4 text-black font-bold text-lg transition-all duration-200 cursor-pointer rounded-lg">
                 Launch Patakha!
-            </button>
-            <div class="tooltip">Press Space to launch</div>
+        </button>
+            <div class="tooltip">Press [Space] to Launch</div>
         </div>
         
         <!-- Divider -->
@@ -173,7 +229,7 @@
             </div>
             <div class="stats-section text-center">
                 <div class="stat-label">Patakhe Rate</div>
-                <div class="stat-value" id="rateCount">0/s</div>
+                <div class="stat-value" id="rateCount">0/sec</div>
             </div>
             <div class="stats-section text-center">
                 <div class="stat-label">Online</div>
@@ -186,11 +242,19 @@
         const viewport = document.getElementById('viewport');
         const launchBtn = document.getElementById('launchBtn');
         const countDisplay = document.getElementById('count');
+        const rateDisplay = document.getElementById('rateCount');
+        const onlineDisplay = document.getElementById('onlineCount');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionText = document.getElementById('connectionText');
         
         let fireworks = [];
-        let fireworkCount = 0;
         let animationId = null;
         let lastTs = performance.now();
+        let ws = null;
+        let reconnectTimeout = null;
+        let isButtonOnCooldown = false;
+        let reconnectAttempts = 0;
+        let maxReconnectDelay = 30000; // Max 30 seconds between attempts
         
         // Create twinkling stars
         function createStars() {
@@ -400,9 +464,9 @@
                 if (this.explosionType === 'peony') {
                     // Standard spherical burst
                     particleCount = Math.random() * 20 + 30;
-                    for (let i = 0; i < particleCount; i++) {
-                        const angle = (Math.PI * 2 * i) / particleCount;
-                        const speed = Math.random() * 4 + 2;
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = (Math.PI * 2 * i) / particleCount;
+                    const speed = Math.random() * 4 + 2;
                         this.createParticle(angle, speed, chars, this.color);
                     }
                     
@@ -458,24 +522,24 @@
             }
             
             createParticle(angle, speed, chars, color) {
-                const particle = {
-                    x: this.x,
-                    y: this.y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    life: 1.0,
-                    char: chars[Math.floor(Math.random() * chars.length)],
+                    const particle = {
+                        x: this.x,
+                        y: this.y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1.0,
+                        char: chars[Math.floor(Math.random() * chars.length)],
                     gravity: 0.05, // Light default gravity (realistic)
                     hasTrail: false,
-                    element: null
-                };
-                
-                // Create particle element using pool
-                particle.element = elementPool.get(particle.char, 'particle');
+                        element: null
+                    };
+                    
+                    // Create particle element using pool
+                    particle.element = elementPool.get(particle.char, 'particle');
                 particle.element.style.color = color;
-                viewport.appendChild(particle.element);
-                
-                this.particles.push(particle);
+                    viewport.appendChild(particle.element);
+                    
+                    this.particles.push(particle);
                 return particle;
             }
             
@@ -527,17 +591,189 @@
             }
         }
         
-        function launchFirework(explosionType = null, color = null) {
-            const startX = Math.random() * (viewport.clientWidth - 100) + 50;
+        function launchFirework(xPercent = null, explosionType = null, color = null) {
+            // Calculate x position from percentage (or random if not provided)
+            let startX;
+            if (xPercent !== null) {
+                startX = xPercent * viewport.clientWidth;
+            } else {
+                startX = Math.random() * (viewport.clientWidth - 100) + 50;
+            }
+            
             const firework = new Firework(startX, explosionType, color);
             fireworks.push(firework);
-            fireworkCount++;
-            countDisplay.textContent = fireworkCount;
             
             // Start animation loop if not running
             if (!animationId) {
                 animationId = requestAnimationFrame(animate);
             }
+        }
+        
+        // WebSocket connection management
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            console.log('🔌 Attempting WebSocket connection to:', wsUrl);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                console.log('✅ Connected to server');
+                connectionStatus.className = 'connection-status connected';
+                connectionText.textContent = 'Connected';
+                clearTimeout(reconnectTimeout);
+                
+                // Reset reconnection backoff on successful connection
+                reconnectAttempts = 0;
+                
+                // Reset local counter when successfully connected to server
+                // Server will send us the real count via stats message
+                localFireworkCount = 0;
+            };
+            
+            ws.onmessage = (event) => {
+                console.log('📨 Received message:', event.data);
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'firework') {
+                    console.log('🎆 Firework event:', data);
+                    // Launch firework at position from server
+                    launchFirework(data.x);
+                    // Update counter
+                    countDisplay.textContent = formatNumber(data.count);
+                } else if (data.type === 'count_update') {
+                    console.log('🔢 Count update:', data);
+                    // Just update counter (sampled out firework)
+                    countDisplay.textContent = formatNumber(data.count);
+                } else if (data.type === 'stats') {
+                    console.log('📊 Stats update:', data);
+                    // Update all statistics
+                    countDisplay.textContent = formatNumber(data.total);
+                    // Rate is already per-second from backend
+                    rateDisplay.textContent = `${data.rate.toFixed(1)}/sec`;
+                    onlineDisplay.textContent = formatNumber(data.online);
+                } else if (data.type === 'cooldown') {
+                    console.log('⏱️ Rate limited:', data.message);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+                console.error('Error details:', {
+                    readyState: ws.readyState,
+                    url: ws.url
+                });
+                
+                // Set to offline mode on error
+                connectionStatus.className = 'connection-status disconnected';
+                connectionText.textContent = 'Disconnected';
+                
+                // Enable the button for offline mode
+                isButtonOnCooldown = false;
+                launchBtn.style.opacity = '1';
+            };
+            
+            ws.onclose = (event) => {
+                console.log('🔌 Disconnected from server');
+                console.log('Close event:', {
+                    code: event.code,
+                    reason: event.reason,
+                    wasClean: event.wasClean
+                });
+                connectionStatus.className = 'connection-status disconnected';
+                connectionText.textContent = 'Disconnected';
+                
+                // Update stats for offline mode (but keep local counter)
+                rateDisplay.textContent = '-';
+                onlineDisplay.textContent = '-';
+                
+                // If this is the first disconnect and we haven't launched anything locally yet
+                if (localFireworkCount === 0) {
+                    countDisplay.textContent = '0';
+                }
+                // Otherwise keep showing the local count
+                
+                // Enable the button for offline mode
+                isButtonOnCooldown = false;
+                launchBtn.style.opacity = '1';
+                
+                // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
+                reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), maxReconnectDelay);
+                
+                console.log(`⏱️ Reconnecting in ${delay/1000}s (attempt ${reconnectAttempts})`);
+                
+                // Attempt to reconnect with exponential backoff
+                reconnectTimeout = setTimeout(() => {
+                    connectionStatus.className = 'connection-status connecting';
+                    connectionText.textContent = 'Reconnecting...';
+                    connectWebSocket();
+                }, delay);
+            };
+        }
+        
+        // Local firework counter for offline mode
+        let localFireworkCount = 0;
+        
+        // Format large numbers with K, M, B suffixes
+        function formatNumber(num) {
+            if (num >= 1000000000) {
+                return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+            }
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            }
+            if (num >= 1000) {
+                return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            }
+            return num.toLocaleString();
+        }
+        
+        // Send launch request to server
+        function requestLaunch() {
+            console.log('🚀 Launch requested, WebSocket state:', ws ? ws.readyState : 'null');
+            
+            // Check cooldown first - prevent any action during cooldown
+            if (isButtonOnCooldown) {
+                console.log('⏱️ Button on cooldown - ignoring click');
+                return;
+            }
+            
+            // Apply cooldown immediately to prevent rapid clicks
+            isButtonOnCooldown = true;
+            launchBtn.style.opacity = '0.6';
+            
+            // Check if connected to server
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.log('⚠️ Not connected to server - launching locally');
+                // Launch firework locally in offline mode
+                launchFirework();
+                localFireworkCount++;
+                countDisplay.textContent = formatNumber(localFireworkCount);
+                
+                // Reset cooldown after delay
+                setTimeout(() => {
+                    isButtonOnCooldown = false;
+                    launchBtn.style.opacity = '1';
+                }, 300);
+                
+                return;
+            }
+            
+            // Connected - send to server
+            const message = {
+                type: 'launch',
+                timestamp: Date.now()
+            };
+            
+            console.log('📤 Sending message:', message);
+            ws.send(JSON.stringify(message));
+            
+            // Reset cooldown after delay
+            setTimeout(() => {
+                isButtonOnCooldown = false;
+                launchBtn.style.opacity = '1';
+            }, 300);
         }
         
         function animate(ts) {
@@ -569,7 +805,7 @@
         }
         
         // Event listeners
-        launchBtn.addEventListener('click', () => launchFirework());
+        launchBtn.addEventListener('click', requestLaunch);
         
         // Track if space is already pressed to prevent repeat firing
         let spacePressed = false;
@@ -579,7 +815,7 @@
             if (e.code === 'Space' && !spacePressed) {
                 e.preventDefault();
                 spacePressed = true;
-                launchFirework();
+                requestLaunch();
             }
         });
         
@@ -590,10 +826,8 @@
             }
         });
         
-        // Optional: Launch a few fireworks on load for demo
-        setTimeout(() => launchFirework(), 500);
-        setTimeout(() => launchFirework(), 800);
-        setTimeout(() => launchFirework(), 1100);
+        // Initialize WebSocket connection
+        connectWebSocket();
     </script>
 </body>
 </html>
