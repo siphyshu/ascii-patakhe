@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY server.py .
 COPY index.html .
 COPY background.png .
+COPY favicon.ico .
+COPY og.png .
 
 # Expose port
 EXPOSE 8500
