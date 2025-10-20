@@ -280,8 +280,13 @@
         <div class="flex flex-col items-center flex-1 gap-2 w-full md:w-auto">
             <button id="launchBtn" class="px-8 md:px-10 py-3 md:py-4 text-black font-bold text-base md:text-lg transition-all duration-200 cursor-pointer rounded-lg w-full md:w-auto max-w-xs">
                 Launch Patakha!
-        </button>
-            <div class="tooltip text-xs md:text-sm hidden md:block">Press [Space] to Launch</div>
+            </button>
+            <div class="flex items-center justify-center gap-2">
+                <div class="tooltip text-xs md:text-sm hidden md:block">Press [Space] to Launch</div>
+                <button id="soundToggle" class="pt-2 text-base md:text-md text-gray-400 hover:text-white transition-colors flex items-center justify-center hidden md:block" title="Toggle sound">
+                    🔊
+                </button>
+            </div>
         </div>
         
         <!-- Divider (hidden on mobile) -->
@@ -294,7 +299,7 @@
                 <div class="stat-value" id="count">0</div>
             </div>
             <div class="stats-section text-center">
-                <div class="stat-label">Patakhe Rate</div>
+                <div class="stat-label">Right Now</div>
                 <div class="stat-value" id="rateCount">0/sec</div>
             </div>
             <div class="stats-section text-center">
@@ -323,6 +328,53 @@
         let maxReconnectDelay = 30000; // Max 30 seconds between attempts
         let hideStatusTimeout = null;
         let isConnected = false;
+        
+        // Sound effects
+        let soundEnabled = true;
+        const sounds = {
+            launch: new Audio('firework_launch.ogg'),
+            peony: new Audio('firework_peony.ogg'),
+            palm: new Audio('firework_palm.ogg')
+        };
+        
+        // Preload sounds and set volume
+        Object.values(sounds).forEach((sound, index) => {
+            sound.volume = 0.15; // 15% volume - subtle but noticeable
+            sound.preload = 'auto';
+        });
+        
+        // Play sound function with error handling
+        function playSound(soundName) {
+            if (!soundEnabled) return;
+            
+            try {
+                const sound = sounds[soundName];
+                if (sound) {
+                    // Clone the audio to allow overlapping sounds
+                    const soundClone = sound.cloneNode();
+                    soundClone.volume = sound.volume;
+                    soundClone.play().catch(() => {
+                        // Silently ignore autoplay policy errors
+                    });
+                }
+            } catch (e) {
+                // Silently ignore sound errors
+            }
+        }
+        
+        // Toggle sound on first user interaction (for autoplay policy)
+        let soundInitialized = false;
+        function initSound() {
+            if (!soundInitialized) {
+                soundInitialized = true;
+                // Play silent sound to initialize audio context
+                Object.values(sounds).forEach(sound => {
+                    sound.volume = 0;
+                    sound.play().then(() => sound.pause()).catch(() => {});
+                    sound.volume = 0.15;
+                });
+            }
+        }
         
         // Create twinkling stars
         function createStars() {
@@ -512,6 +564,14 @@
                 this.phase = 'explode';
                 this.exploded = true;
                 
+                // Play explosion sound based on type
+                if (this.explosionType === 'palm') {
+                    playSound('palm');
+                } else {
+                    // Use peony sound for all other types (peony, ring, willow)
+                    playSound('peony');
+                }
+                
                 // Remove rocket element
                 if (this.rocketEl && this.rocketEl.parentNode) {
                     this.rocketEl.parentNode.removeChild(this.rocketEl);
@@ -671,6 +731,9 @@
             const firework = new Firework(startX, explosionType, color);
             fireworks.push(firework);
             
+            // Play launch sound
+            playSound('launch');
+            
             // Start animation loop if not running
             if (!animationId) {
                 animationId = requestAnimationFrame(animate);
@@ -804,23 +867,17 @@
         // Local firework counter for offline mode
         let localFireworkCount = 0;
         
-        // Format large numbers with K, M, B suffixes
+        // Format numbers with comma separators
         function formatNumber(num) {
-            if (num >= 1000000000) {
-                return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-            }
-            if (num >= 1000000) {
-                return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-            }
-            if (num >= 1000) {
-                return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-            }
             return num.toLocaleString();
         }
         
         // Send launch request to server
         function requestLaunch() {
             console.log('🚀 Launch requested, WebSocket state:', ws ? ws.readyState : 'null');
+            
+            // Initialize sound on first interaction
+            initSound();
             
             // Check cooldown first - prevent any action during cooldown
             if (isButtonOnCooldown) {
@@ -917,6 +974,25 @@
         
         // Initialize WebSocket connection
         connectWebSocket();
+        
+        // Sound toggle button
+        const soundToggle = document.getElementById('soundToggle');
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+            soundToggle.title = soundEnabled ? 'Mute sound' : 'Unmute sound';
+            
+            // Save preference
+            localStorage.setItem('soundEnabled', soundEnabled);
+        });
+        
+        // Load sound preference
+        const savedSoundPref = localStorage.getItem('soundEnabled');
+        if (savedSoundPref !== null) {
+            soundEnabled = savedSoundPref === 'true';
+            soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+            soundToggle.title = soundEnabled ? 'Mute sound' : 'Unmute sound';
+        }
     </script>
 </body>
 </html>

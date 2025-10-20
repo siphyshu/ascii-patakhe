@@ -137,21 +137,21 @@ async def shutdown_event():
 
 
 async def get_launch_rate() -> float:
-    """Calculate launches per second based on recent activity"""
+    """Calculate launches per second based on very recent activity (last 3 seconds)"""
     try:
-        # Get launches from the last 30 seconds for better average
+        # Get launches from the last 3 seconds for near-instantaneous rate
         now = time.time()
-        thirty_seconds_ago = now - 30
+        three_seconds_ago = now - 3
         
-        # Count launches in the last 30 seconds
-        count = await redis_client.zcount(RATE_KEY, thirty_seconds_ago, now)
+        # Count launches in the last 3 seconds
+        count = await redis_client.zcount(RATE_KEY, three_seconds_ago, now)
         
         # Clean up old entries (older than 1 minute)
         one_minute_ago = now - 60
         await redis_client.zremrangebyscore(RATE_KEY, 0, one_minute_ago)
         
-        # Calculate per-second rate (count over 30 seconds, divided by 30)
-        rate = count / 30.0
+        # Calculate per-second rate (count over 3 seconds, divided by 3)
+        rate = count / 3.0
         return round(rate, 1)
     except Exception as e:
         logger.error(f"Error calculating launch rate: {e}")
@@ -246,6 +246,36 @@ async def get_og():
     except Exception as e:
         logger.warning(f"OG image not found: {e}")
         return {"error": "OG image not found"}
+
+
+@app.get("/firework_launch.ogg")
+async def get_sound_launch():
+    """Serve launch sound"""
+    try:
+        return FileResponse("firework_launch.ogg", media_type="audio/ogg")
+    except Exception as e:
+        logger.warning(f"Launch sound not found: {e}")
+        return {"error": "Sound not found"}
+
+
+@app.get("/firework_peony.ogg")
+async def get_sound_peony():
+    """Serve peony explosion sound"""
+    try:
+        return FileResponse("firework_peony.ogg", media_type="audio/ogg")
+    except Exception as e:
+        logger.warning(f"Peony sound not found: {e}")
+        return {"error": "Sound not found"}
+
+
+@app.get("/firework_palm.ogg")
+async def get_sound_palm():
+    """Serve palm explosion sound"""
+    try:
+        return FileResponse("firework_palm.ogg", media_type="audio/ogg")
+    except Exception as e:
+        logger.warning(f"Palm sound not found: {e}")
+        return {"error": "Sound not found"}
 
 
 @app.get("/health")

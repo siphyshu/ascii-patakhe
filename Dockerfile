@@ -12,6 +12,9 @@ COPY index.html .
 COPY background.png .
 COPY favicon.ico .
 COPY og.png .
+COPY firework_launch.ogg .
+COPY firework_peony.ogg .
+COPY firework_palm.ogg .
 
 # Expose port
 EXPOSE 8500
