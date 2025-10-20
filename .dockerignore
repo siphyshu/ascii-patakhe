@@ -15,5 +15,10 @@ docker-compose.yml
 Dockerfile
 .dockerignore
 test_*.py
+test_*.html
 *.bat
 *.sh
+DEPLOY.md
+API.md
+IMPLEMENTATION.md
+QUICKSTART.md
