@@ -25,8 +25,8 @@ A beautiful, real-time multiplayer ASCII fireworks display where everyone sees t
 
 1. **Clone the repository**
    ```bash
-   git clone <your-repo-url>
-   cd ascii-fireworks
+   git clone https://github.com/siphyshu/ascii-patakhe
+   cd ascii-patakhe
    ```
 
 2. **Start Redis** (using Docker - recommended)
