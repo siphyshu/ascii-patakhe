@@ -1,16 +1,16 @@
 version: '3.8'
 
 services:
-  # web:
-  #   build: .
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     - REDIS_URL=redis://redis:6379
-  #     - RATE_LIMIT_SECONDS=0.3
-  #   depends_on:
-  #     - redis
-  #   restart: unless-stopped
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - RATE_LIMIT_SECONDS=0.3
+    depends_on:
+      - redis
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
